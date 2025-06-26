@@ -32,38 +32,6 @@ const (
 	DefaultHealthCheckPeriod = 1 * time.Minute
 )
 
-// GourdianGormPostgresConfig defines the configuration options for connecting to PostgreSQL using GORM.
-// It includes settings for connection pooling, timeouts, retries, and transaction preferences.
-//
-// Required Fields:
-//   - Host: PostgreSQL server hostname or IP address
-//   - Port: PostgreSQL server port (typically 5432)
-//   - User: Database username for authentication
-//   - Password: Password for the database user
-//   - Database: Name of the database to connect to
-//
-// Optional Fields:
-//   - ApplicationName: Identifies the application in PostgreSQL logs
-//   - SSLMode: Determines SSL/TLS security level (disable|allow|prefer|require|verify-ca|verify-full)
-//   - SSLCert/SSLKey/SSLRootCert: Paths to SSL certificates
-//   - DefaultIsolation: Default transaction isolation level
-//   - ReadReplicaDSNs: Connection strings for read replicas
-//   - Timeout Settings: Various timeout configurations
-//   - Connection Pool Settings: Controls connection pooling behavior
-//
-// Example Usage:
-//
-//	config := &GourdianGormPostgresConfig{
-//	    Host:             "db.example.com",
-//	    Port:             5432,
-//	    User:             "app_user",
-//	    Password:         "securepassword",
-//	    Database:         "app_db",
-//	    SSLMode:          "verify-full",
-//	    MaxOpenConns:     50,
-//	    ConnectTimeout:   10 * time.Second,
-//	    OperationTimeout: 30 * time.Second,
-//	}
 type GourdianGormPostgresConfig struct {
 	Host              string
 	Port              int
@@ -93,36 +61,6 @@ type GourdianGormPostgresConfig struct {
 	TLSConfig         *tls.Config
 }
 
-// NewGourdianGormPostgresConfig creates a fully customizable PostgreSQL configuration.
-// This constructor provides explicit control over all configuration parameters.
-//
-// Parameters:
-//   - tlsConfig: Custom TLS configuration for encrypted connections
-//   - readReplicaDSNs: List of connection strings for read replicas
-//   - port: Database server port number
-//   - maxRetries: Maximum connection/operation retry attempts
-//   - maxOpenConns/maxIdleConns: Connection pool size limits
-//   - host/user/password/database: Basic connection parameters
-//   - sslMode/sslCert/sslKey/sslRootCert: SSL configuration
-//   - defaultIsolation: Default transaction isolation level
-//   - Various timeout durations
-//
-// Returns:
-//
-//	*GourdianGormPostgresConfig: Configured PostgreSQL connection settings
-//
-// Example Usage:
-//
-//	config := NewGourdianGormPostgresConfig(
-//	    &tls.Config{...},
-//	    []string{"host=replica1", "host=replica2"},
-//	    5432, 3, 100, 10,
-//	    "db.example.com", "user", "pass", "db",
-//	    "verify-full", "cert.pem", "key.pem", "ca.pem", "read-committed",
-//	    5*time.Minute, 5*time.Minute, 1*time.Minute,
-//	    10*time.Second, 30*time.Second, 30*time.Second,
-//	    30*time.Second, 30*time.Second, 10*time.Second, 5*time.Second,
-//	)
 func NewGourdianGormPostgresConfig(
 	tlsConfig *tls.Config,
 	readReplicaDSNs []string,
@@ -159,25 +97,6 @@ func NewGourdianGormPostgresConfig(
 	}
 }
 
-// NewDefaultGourdianGormPostgresConfig creates a PostgreSQL configuration with sensible defaults.
-// Only requires basic connection parameters, all other settings use recommended values.
-//
-// Parameters:
-//   - host: Database server hostname
-//   - port: Database server port
-//   - user: Database username
-//   - password: Database password
-//   - database: Database name
-//
-// Returns:
-//
-//	*GourdianGormPostgresConfig: Configuration with default values
-//
-// Example Usage:
-//
-//	config := NewDefaultGourdianGormPostgresConfig(
-//	    "localhost", 5432, "postgres", "password", "mydb",
-//	)
 func NewDefaultGourdianGormPostgresConfig(host string, port int, user, password, database string) *GourdianGormPostgresConfig {
 	return &GourdianGormPostgresConfig{
 		Host:              host,
@@ -199,7 +118,6 @@ func NewDefaultGourdianGormPostgresConfig(host string, port int, user, password,
 	}
 }
 
-// buildDSN constructs the PostgreSQL connection string from configuration
 func buildDSN(config *GourdianGormPostgresConfig) string {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
 		config.Host, config.Port, config.User, config.Password, config.Database)
@@ -229,30 +147,6 @@ func buildDSN(config *GourdianGormPostgresConfig) string {
 	return dsn
 }
 
-// NewGourdianPostgresGormDatabase establishes a managed PostgreSQL connection using GORM.
-// Implements retry logic, connection pooling, and proper error handling.
-//
-// Parameters:
-//   - ctx: Context for cancellation and timeouts
-//   - config: Connection configuration
-//   - log: Logger instance for connection events
-//
-// Returns:
-//
-//	*gorm.DB: GORM database instance
-//	error: Connection error if any
-//
-// Example Usage:
-//
-//	db, err := NewGourdianPostgresGormDatabase(
-//	    context.Background(),
-//	    config,
-//	    logger,
-//	)
-//	if err != nil {
-//	    log.Fatal("Failed to connect:", err)
-//	}
-//	defer CloseDatabaseConnection(context.Background(), db, config, logger)
 func NewGourdianPostgresGormDatabase(
 	ctx context.Context,
 	config *GourdianGormPostgresConfig,
@@ -340,7 +234,6 @@ func NewGourdianPostgresGormDatabase(
 	return nil, fmt.Errorf("failed to connect to PostgreSQL after %d attempts: %w", config.MaxRetries, err)
 }
 
-// setDefaultIsolation sets the default transaction isolation level for the database
 func setDefaultIsolation(db *gorm.DB, level string) error {
 	var isolation string
 	switch strings.ToLower(level) {
@@ -359,27 +252,6 @@ func setDefaultIsolation(db *gorm.DB, level string) error {
 	return db.Exec(fmt.Sprintf("SET default_transaction_isolation = '%s'", isolation)).Error
 }
 
-// NewDefaultGourdianPostgresGormDatabase creates a PostgreSQL connection using default configuration.
-// Simplified version for basic connection needs.
-//
-// Parameters:
-//   - ctx: Context for cancellation
-//   - port: Database port
-//   - host/user/password/database: Connection details
-//   - log: Logger instance
-//
-// Returns:
-//
-//	*gorm.DB: GORM database instance
-//	error: Connection error if any
-//
-// Example Usage:
-//
-//	db, err := NewDefaultGourdianPostgresGormDatabase(
-//	    context.Background(),
-//	    5432, "localhost", "user", "pass", "db",
-//	    logger,
-//	)
 func NewDefaultGourdianPostgresGormDatabase(
 	ctx context.Context,
 	port int,
@@ -390,30 +262,6 @@ func NewDefaultGourdianPostgresGormDatabase(
 	return NewGourdianPostgresGormDatabase(ctx, config, log)
 }
 
-// CloseDatabaseConnection safely terminates a PostgreSQL connection with timeout.
-// Ensures graceful shutdown and proper resource cleanup.
-//
-// Parameters:
-//   - ctx: Context for cancellation
-//   - db: GORM database instance to close
-//   - disconnectTimeout: Disconnect timeout settings
-//   - log: Logger for shutdown events
-//
-// Returns:
-//
-//	error: If disconnection fails
-//
-// Example Usage:
-//
-//	err := CloseDatabaseConnection(
-//	    context.Background(),
-//	    db,
-//	    config,
-//	    logger,
-//	)
-//	if err != nil {
-//	    log.Error("Disconnection error:", err)
-//	}
 func CloseDatabaseConnection(
 	ctx context.Context,
 	db *gorm.DB,
@@ -451,34 +299,6 @@ func CloseDatabaseConnection(
 	}
 }
 
-// WithTransaction executes database operations within a transactional context.
-// Provides automatic retry for transient errors and proper rollback on failure.
-//
-// Parameters:
-//   - ctx: Context for cancellation
-//   - db: GORM database instance
-//   - config: Configuration for retry/timeout settings
-//   - log: Logger for transaction events
-//   - operations: Function containing the transactional operations
-//
-// Returns:
-//
-//	error: Transaction execution error if any
-//
-// Example Usage:
-//
-//	err := WithTransaction(
-//	    context.Background(),
-//	    db,
-//	    config,
-//	    logger,
-//	    func(tx *gorm.DB) error {
-//	        if err := tx.Create(&user).Error; err != nil {
-//	            return err
-//	        }
-//	        return tx.Model(&account).Update("balance", newBalance).Error
-//	    },
-//	)
 func WithTransaction(
 	ctx context.Context,
 	db *gorm.DB,
@@ -524,7 +344,6 @@ func WithTransaction(
 	return nil
 }
 
-// getIsolationLevel converts isolation level string to sql.IsolationLevel
 func getIsolationLevel(level string) sql.IsolationLevel {
 	switch strings.ToLower(level) {
 	case "read uncommitted":
@@ -540,7 +359,6 @@ func getIsolationLevel(level string) sql.IsolationLevel {
 	}
 }
 
-// withRetry implements retry logic for PostgreSQL operations.
 func withRetry(
 	ctx context.Context,
 	config *GourdianGormPostgresConfig,
@@ -577,45 +395,18 @@ func withRetry(
 	return fmt.Errorf("operation failed after %d attempts: %w", config.MaxRetries, lastErr)
 }
 
-// isRetryableError checks if an error is retryable
 func isRetryableError(err error) bool {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return false
 	}
 
-	// Add more retryable error checks as needed
 	return true
 }
 
-// GormLogger adapts gourdianlogger to GORM's logger interface.
-// Provides consistent logging across the application stack.
-//
-// Fields:
-//   - logger: Underlying gourdianlogger instance
-//
-// Example Usage:
-//
-//	gormDB, err := gorm.Open(
-//	    postgres.Open(dsn),
-//	    &gorm.Config{Logger: NewGormLogger(appLogger)},
-//	)
 type GormLogger struct {
 	logger *gourdianlogger.Logger
 }
 
-// NewGormLogger creates a logger adapter for GORM.
-//
-// Parameters:
-//   - log: gourdianlogger instance to wrap
-//
-// Returns:
-//
-//	logger.Interface: GORM-compatible logger
-//
-// Example Usage:
-//
-//	gormLogger := NewGormLogger(appLogger)
-//	db.SetLogger(gormLogger)
 func NewGormLogger(log *gourdianlogger.Logger) logger.Interface {
 	return &GormLogger{logger: log}
 }
